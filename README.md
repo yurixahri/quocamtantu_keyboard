@@ -1,6 +1,6 @@
 ![Loading](resources/qatt.ico)
 
-# QATT C++
+# Quốc Âm Tân Tự (國音新字)
 
 Prototype bộ gõ Quốc Âm Tân Tự dùng C++20/CMake. Hiện có tính năng Telex/mapping và app tray cho Windows; phần giao diện web và pipeline xử lý ảnh không nằm trong project con này. Dự án này 100% là vibe code vì mình thấy khá hứng thú với nội dung này.
 
