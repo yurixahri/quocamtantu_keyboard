@@ -1,8 +1,26 @@
 cmake_minimum_required(VERSION 3.20)
 
+if(POLICY CMP0091)
+    cmake_policy(SET CMP0091 NEW)
+endif()
+
 project(qatt LANGUAGES CXX)
 
-add_library(qatt_core
+option(QATT_STATIC_RUNTIME "Statically link the C++ runtime into executables" ON)
+
+if(MSVC)
+    if(QATT_STATIC_RUNTIME)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY
+            "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    else()
+        set(CMAKE_MSVC_RUNTIME_LIBRARY
+            "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    endif()
+elseif(MINGW AND QATT_STATIC_RUNTIME)
+    add_link_options(-static)
+endif()
+
+add_library(qatt_core STATIC
     src/mapping.cpp
     src/telex.cpp
 )

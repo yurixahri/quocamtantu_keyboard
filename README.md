@@ -18,14 +18,16 @@ JSON phù hợp cho cấu hình có cấu trúc và dễ đọc bằng công c�
 
 ## Build trên Windows
 
-Yêu cầu CMake 3.20 trở lên và MinGW-w64 hoặc MSVC hỗ trợ C++20.
+Yêu cầu CMake 3.20 trở lên và MinGW-w64 hoặc MSVC hỗ trợ C++20. Mặc định CMake build `qatt_core` dạng static và liên kết runtime C++ tĩnh vào các executable, để không cần phân phối DLL runtime của MinGW/MSVC. Các DLL hệ thống Windows vẫn được sử dụng. Có thể tắt liên kết runtime tĩnh bằng `-DQATT_STATIC_RUNTIME=OFF`.
 
 ```powershell
-cmake -S . -B build -G Ninja
+cmake -S . -B build -G Ninja -DQATT_STATIC_RUNTIME=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 .\build\qatt_tray.exe
 ```
+
+Với MSVC, có thể chọn runtime tĩnh tương đương bằng tùy chọn trên. Để build runtime động, cấu hình lại với `-DQATT_STATIC_RUNTIME=OFF`.
 
 CLI để xem số mục hoặc thử Telex:
 
