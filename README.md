@@ -11,7 +11,7 @@ Prototype bộ gõ Quốc Âm Tân Tự dùng C++20/CMake. Hiện có tính năn
 - `src/telex.cpp`: chuyển chuỗi phím Telex thành âm tiết tiếng Việt NFC.
 - `src/mapping.cpp`: nạp TSV và đổi chính xác một âm tiết có trong bảng thành glyph.
 - `src/windows_tray.cpp`: app nền Windows, menu khay hệ thống chọn chế độ Quốc Âm, Telex hoặc tắt; cập nhật phần đuôi thay đổi thay vì xóa/gõ lại toàn âm tiết ở mỗi phím.
-- `config.ini`: cấu hình phím tắt chuyển chế độ (mặc định Alt+Z) và bật/tắt âm thanh thông báo.
+- `config.ini`: cấu hình phím tắt chuyển chế độ (mặc định Alt+Z), bật/tắt âm thanh thông báo và chế độ game (tự động bỏ qua hook khi ở trong game để không kẹt phím di chuyển WASD).
 - `resources/qatt.ico`: biểu tượng nền trắng, dùng glyph Quốc Âm Tân Tự cho âm `qu` từ font QATT. Font hiện tại không có bảng chữ cái Latin, nên icon dùng glyph QATT thay vì chữ `Q` Latin.
 - `src/main.cpp`: CLI để kiểm tra mapping hoặc thử chuyển một âm tiết.
 
@@ -44,7 +44,7 @@ Tray app khởi động ở chế độ chuyển sang Quốc Âm Tân Tự. Ch�
 - **Tắt bộ gõ**: chuyển phím trực tiếp cho ứng dụng như bình thường.
 - **Thoát**: đóng ứng dụng.
 
-Ở hai chế độ nhập, phím chữ được giữ trong từ hiện tại và hiển thị thành Telex; nhấn cách, Enter hoặc dấu câu để chốt từ. Trong chế độ Quốc Âm, chỉ các từ có trong mapping mới đổi glyph; chuỗi không có mapping sẽ giữ nguyên phím gốc. Engine cũng chỉ áp dụng Telex khi âm tiết có vần và phụ âm cuối hợp lệ, nên `enter` được giữ nguyên thay vì thành `ểnt`.
+Ở hai chế độ nhập, phím chữ được giữ trong từ hiện tại và hiển thị thành Telex; nhấn cách, Enter hoặc dấu câu để chốt từ. Trong chế độ Quốc Âm, chỉ các từ có trong mapping mới đổi glyph; chuỗi không có mapping sẽ giữ nguyên phím gốc; khi nhấn phím cách để chốt tự thì không chèn thêm dấu cách phía sau (để viết liền các tự QATT). Ở chế độ chỉ gõ Telex, phím cách chốt từ và chèn dấu cách như bình thường. Engine cũng chỉ áp dụng Telex khi âm tiết có vần và phụ âm cuối hợp lệ, nên `enter` được giữ nguyên thay vì thành `ểnt`.
 
 Phím `W` nhận diện hai nguyên âm cuối của âm tiết: `uo` + `w` thành `ươ` (ví dụ `uongw` → `ương`), `ua` + `w` thành `ưa` (ví dụ `chuaw` → `chưa`); các trường hợp khác thì đổi nguyên âm a/o/u gần nhất thành ă/ơ/ư. Phím `a`, `e`, `o` lặp lại cũng có thể đổi nguyên âm trước đó dù đã gõ phụ âm cuối, ví dụ `them` rồi `e` → `thêm`.
 
@@ -52,7 +52,13 @@ Nhấn Alt+Z để chuyển chế độ; mỗi lần đổi chế độ phát â
 Enter và Tab chốt âm tiết rồi chuyển phím gốc tới ứng dụng. Các ký tự cần Shift như `<` và `>` cũng được chuyển phím gốc, không bị thay bằng ký tự Unicode giả lập.
 Nhấn lại cùng phím thanh sẽ hủy thanh và giữ phím đó như chữ thường; ví dụ `thiff` hiển thị `thif`.
 
-Vị trí dấu theo quy tắc kiểu cũ: bỏ qua `qu`/`gi` đầu khi chúng đóng vai trò phụ âm; nếu chỉ có một nguyên âm thì đặt dấu ở đó. Với hai nguyên âm, đặt dấu ở nguyên âm đầu, trừ khi có phụ âm cuối; với ba nguyên âm hoặc hai nguyên âm kèm phụ âm cuối, đặt ở nguyên âm thứ hai. `ê` và `ơ` luôn được ưu tiên. Ví dụ `toaf` → `tòa`, `toanf` → `toàn`, `quyf` → `quỳ`, `xoas` → `xóa`, `thuwowr` → `thưở`, `chuyeenj` → `chuyện`.
+Vị trí dấu theo quy tắc kiểu cũ (`óa, iể, úy` thay vì `oá, uý`): bỏ qua `qu`/`gi` đầu khi chúng đóng vai trò phụ âm (nhưng giữ nguyên âm khi sau `gi` là phụ âm như `gìn`); nếu chỉ có một nguyên âm thì đặt dấu ở đó. Với hai nguyên âm, đặt dấu ở nguyên âm đầu khi không có phụ âm cuối (`hòa`, `xóa`, `thủy`, `túy`, `chào`), và chuyển sang nguyên âm thứ hai khi có phụ âm cuối (`toàn`, `quát`, `huýnh`). `ê` và `ơ` luôn được ưu tiên (`tiến`, `thưở`). Hỗ trợ phím tắt `[` ra `ơ`, `]` ra `ư`, `w` đầu từ ra `ư`.
+
+### Chế độ chơi Game (Game Mode)
+Khi bật chế độ gõ tiếng Việt / Quốc Âm, hook bàn phím thông thường có thể nuốt các phím di chuyển `W-A-S-D` hoặc phím kỹ năng trong game. Ứng dụng tích hợp bộ nhận diện Game tự động:
+- Tự động nhận diện tiến trình game phổ biến (`League of Legends`, `CS2`, `Valorant`, `Dota 2`, `Genshin Impact`, `GTA5`, `Minecraft`, `Roblox`...) và cửa sổ toàn màn hình để tự động bỏ qua (bypass hook), chuyển 100% phím trực tiếp vào game.
+- Cho phép tùy chỉnh thêm các file `.exe` của game trong mục `[game]` của file `config.ini`.
+- Khi cần chat tiếng Việt trong game, nhấn **Alt+Z** để chuyển chế độ hoặc cấu hình `auto_detect = 0` trong `config.ini`.
 
 ### Giới hạn của prototype hook
 

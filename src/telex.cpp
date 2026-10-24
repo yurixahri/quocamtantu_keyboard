@@ -80,9 +80,10 @@ std::string tone_character(std::string_view character, Tone tone) {
 
 std::size_t find_tone_index(const std::vector<std::string>& chars) {
     std::size_t start = 0;
-    if (chars.size() >= 3 && chars[0] == "g" && chars[1] == "i") {
+    if (chars.size() >= 3 && chars[0] == "q" && chars[1] == "u") {
         start = 2;
-    } else if (chars.size() >= 3 && chars[0] == "q" && chars[1] == "u") {
+    } else if (chars.size() >= 3 && chars[0] == "g" && chars[1] == "i" &&
+               is_vowel(chars[2])) {
         start = 2;
     }
 
@@ -93,11 +94,30 @@ std::size_t find_tone_index(const std::vector<std::string>& chars) {
         }
     }
     if (vowels.empty()) {
-        return chars.size();
+        for (std::size_t i = 0; i < chars.size(); ++i) {
+            if (is_vowel(chars[i])) {
+                vowels.push_back(i);
+            }
+        }
+        if (vowels.empty()) {
+            return chars.size();
+        }
     }
 
     for (const auto index : vowels) {
         if (chars[index] == "ê" || chars[index] == "ơ") {
+            return index;
+        }
+    }
+
+    for (const auto index : vowels) {
+        if (chars[index] == "ô") {
+            return index;
+        }
+    }
+
+    for (const auto index : vowels) {
+        if (chars[index] == "ă" || chars[index] == "â" || chars[index] == "ư") {
             return index;
         }
     }
@@ -108,10 +128,22 @@ std::size_t find_tone_index(const std::vector<std::string>& chars) {
 
     const auto last_vowel = vowels.back();
     const bool has_coda = last_vowel + 1 < chars.size();
-    if (vowels.size() == 2 && !has_coda) {
+    if (has_coda) {
+        if (vowels.size() >= 2) {
+            return vowels[1];
+        }
         return vowels.front();
     }
-    return vowels[vowels.size() / 2];
+
+    if (vowels.size() == 2) {
+        return vowels.front();
+    }
+
+    if (vowels.size() >= 3) {
+        return vowels[1];
+    }
+
+    return vowels.front();
 }
 
 bool has_valid_final_consonant(const std::vector<std::string>& chars) {
@@ -156,6 +188,15 @@ std::string compose_telex(std::string_view keystrokes) {
 
         if (!chars.empty() && key == 'd' && chars.back() == "d") {
             chars.back() = "đ";
+            continue;
+        }
+
+        if (key == '[') {
+            chars.emplace_back("ơ");
+            continue;
+        }
+        if (key == ']') {
+            chars.emplace_back("ư");
             continue;
         }
 

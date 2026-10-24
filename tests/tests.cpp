@@ -40,6 +40,10 @@ int main(int argc, char* argv[]) {
     assert(qatt::compose_telex("toois") == "tối");
     assert(qatt::compose_telex("chaof") == "chào");
     assert(qatt::compose_telex("ddang") == "đang");
+    assert(qatt::compose_telex("ginf") == "gìn");
+    assert(qatt::compose_telex("tuys") == "túy");
+    assert(qatt::compose_telex("[") == "ơ");
+    assert(qatt::compose_telex("]") == "ư");
     const auto vowel_edit = qatt::make_utf8_edit("a", "ă");
     assert(vowel_edit.backspaces == 1);
     assert(vowel_edit.inserted_text == "ă");

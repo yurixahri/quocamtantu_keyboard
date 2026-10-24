@@ -47,6 +47,39 @@ std::string g_visible_word;
 HWND g_target_window = nullptr;
 bool g_uppercase_first = false;
 bool g_sound_enabled = true;
+bool g_game_auto_detect = true;
+bool g_fullscreen_detect = true;
+std::vector<std::wstring> g_game_exclude_apps;
+HWND g_cached_foreground_window = nullptr;
+bool g_is_foreground_game = false;
+
+constexpr std::wstring_view kDefaultGameApps[] = {
+    L"league of legends.exe",
+    L"leagueclient.exe",
+    L"leagueclientux.exe",
+    L"cs2.exe",
+    L"csgo.exe",
+    L"dota2.exe",
+    L"valorant.exe",
+    L"valorant-win64-shipping.exe",
+    L"genshinimpact.exe",
+    L"gta5.exe",
+    L"minecraft.exe",
+    L"javaw.exe",
+    L"robloxplayerbeta.exe",
+    L"naraka.exe",
+    L"overwatch.exe",
+    L"fortniteclient-win64-shipping.exe",
+    L"apex.exe",
+    L"r5apex.exe",
+    L"tslgame.exe",
+    L"fifa.exe",
+    L"fc24.exe",
+    L"fc25.exe",
+    L"pubg.exe",
+    L"crossfire.exe",
+    L"warframe.x64.exe"
+};
 
 void update_tray_tooltip();
 void disable_with_error(const wchar_t* message);
@@ -135,6 +168,105 @@ HotkeyConfig load_hotkey_config(const std::filesystem::path& config_file) {
         cfg.vk = VK_OEM_3;
     }
     return cfg;
+}
+
+void load_game_config(const std::filesystem::path& config_file) {
+    g_game_auto_detect = GetPrivateProfileIntW(
+        L"game", L"auto_detect", 1, config_file.c_str()) != 0;
+    g_fullscreen_detect = GetPrivateProfileIntW(
+        L"game", L"fullscreen_detect", 1, config_file.c_str()) != 0;
+
+    wchar_t buf[2048]{};
+    GetPrivateProfileStringW(L"game", L"exclude_apps", L"", buf,
+                             static_cast<DWORD>(std::size(buf)),
+                             config_file.c_str());
+    g_game_exclude_apps.clear();
+    std::wstring str = buf;
+    std::size_t start = 0;
+    while (start < str.size()) {
+        auto end = str.find(L',', start);
+        if (end == std::wstring::npos) {
+            end = str.size();
+        }
+        std::wstring item = str.substr(start, end - start);
+        while (!item.empty() && std::iswspace(item.front())) {
+            item.erase(item.begin());
+        }
+        while (!item.empty() && std::iswspace(item.back())) {
+            item.pop_back();
+        }
+        for (auto& c : item) {
+            c = static_cast<wchar_t>(std::towlower(c));
+        }
+        if (!item.empty()) {
+            g_game_exclude_apps.push_back(item);
+        }
+        start = end + 1;
+    }
+}
+
+bool is_game_or_fullscreen(HWND hwnd) {
+    if (hwnd == nullptr || hwnd == GetDesktopWindow() || hwnd == GetShellWindow()) {
+        return false;
+    }
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid != 0 && pid != GetCurrentProcessId()) {
+        HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (process != nullptr) {
+            wchar_t path_buf[MAX_PATH]{};
+            DWORD size = MAX_PATH;
+            if (QueryFullProcessImageNameW(process, 0, path_buf, &size)) {
+                std::wstring exe_name = std::filesystem::path(path_buf).filename().wstring();
+                for (auto& c : exe_name) {
+                    c = static_cast<wchar_t>(std::towlower(c));
+                }
+                for (const auto& app : g_game_exclude_apps) {
+                    if (exe_name == app) {
+                        CloseHandle(process);
+                        return true;
+                    }
+                }
+                for (const auto& game : kDefaultGameApps) {
+                    if (exe_name == game) {
+                        CloseHandle(process);
+                        return true;
+                    }
+                }
+            }
+            CloseHandle(process);
+        }
+    }
+
+    if (g_fullscreen_detect) {
+        RECT rect{};
+        if (GetWindowRect(hwnd, &rect)) {
+            const int w = GetSystemMetrics(SM_CXSCREEN);
+            const int h = GetSystemMetrics(SM_CYSCREEN);
+            if (rect.left <= 0 && rect.top <= 0 && rect.right >= w && rect.bottom >= h) {
+                const auto style = GetWindowLongW(hwnd, GWL_STYLE);
+                if ((style & WS_CAPTION) != WS_CAPTION) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+bool is_current_window_game() {
+    HWND fg = GetForegroundWindow();
+    if (fg == nullptr) {
+        return false;
+    }
+    if (fg == g_cached_foreground_window) {
+        return g_is_foreground_game;
+    }
+    g_cached_foreground_window = fg;
+    g_is_foreground_game = is_game_or_fullscreen(fg);
+    return g_is_foreground_game;
 }
 
 std::wstring to_wide(std::string_view text) {
@@ -320,9 +452,8 @@ LRESULT CALLBACK keyboard_proc(int code, WPARAM message, LPARAM data) {
 
     const auto& key = *reinterpret_cast<const KBDLLHOOKSTRUCT*>(data);
     if (message == WM_KEYUP || message == WM_SYSKEYUP) {
-        if (key.vkCode == 'W' && g_w_key_held) {
+        if (key.vkCode == 'W') {
             g_w_key_held = false;
-            return 1;
         }
         return CallNextHookEx(g_keyboard_hook, code, message, data);
     }
@@ -347,6 +478,13 @@ LRESULT CALLBACK keyboard_proc(int code, WPARAM message, LPARAM data) {
     }
 
     if (g_mode == InputMode::off) {
+        return CallNextHookEx(g_keyboard_hook, code, message, data);
+    }
+
+    if (g_game_auto_detect && is_current_window_game()) {
+        if (!g_keystrokes.empty()) {
+            clear_buffer();
+        }
         return CallNextHookEx(g_keyboard_hook, code, message, data);
     }
 
@@ -437,7 +575,11 @@ LRESULT CALLBACK keyboard_proc(int code, WPARAM message, LPARAM data) {
     }
 
     if (key.vkCode == VK_SPACE) {
-        commit_word(" ");
+        if (g_mode == InputMode::qatt && !g_keystrokes.empty()) {
+            commit_word();
+        } else {
+            commit_word(" ");
+        }
         return 1;
     }
     if (key.vkCode == VK_RETURN) {
@@ -618,6 +760,7 @@ int run_app(HINSTANCE instance) {
     const auto config_file = config_path();
     g_sound_enabled = GetPrivateProfileIntW(
         L"sound", L"enabled", 1, config_file.c_str()) != 0;
+    load_game_config(config_file);
 
     const auto hotkey = load_hotkey_config(config_file);
     if (!RegisterHotKey(g_window, kToggleModeHotkeyId,
