@@ -11,6 +11,7 @@ Prototype bộ gõ Quốc Âm Tân Tự dùng C++20/CMake. Hiện có tính năn
 - `src/telex.cpp`: chuyển chuỗi phím Telex thành âm tiết tiếng Việt NFC.
 - `src/mapping.cpp`: nạp TSV và đổi chính xác một âm tiết có trong bảng thành glyph.
 - `src/windows_tray.cpp`: app nền Windows, menu khay hệ thống chọn chế độ Quốc Âm, Telex hoặc tắt; cập nhật phần đuôi thay đổi thay vì xóa/gõ lại toàn âm tiết ở mỗi phím.
+- `config.ini`: cấu hình phím tắt chuyển chế độ (mặc định Alt+Z) và bật/tắt âm thanh thông báo.
 - `resources/qatt.ico`: biểu tượng nền trắng, dùng glyph Quốc Âm Tân Tự cho âm `qu` từ font QATT. Font hiện tại không có bảng chữ cái Latin, nên icon dùng glyph QATT thay vì chữ `Q` Latin.
 - `src/main.cpp`: CLI để kiểm tra mapping hoặc thử chuyển một âm tiết.
 
@@ -36,7 +37,7 @@ CLI để xem số mục hoặc thử Telex:
 .\build\qatt_cli.exe .\build\mapping.tsv vieetj
 ```
 
-Tray app khởi động ở chế độ chuyển sang Quốc Âm Tân Tự. Chạy `qatt_tray.exe` cùng `mapping.tsv` và `qatt.ico` (CMake tự copy hai file vào thư mục build). Bấm chuột phải vào biểu tượng tray để chọn chế độ; nhấn **Alt+Z** để luân phiên Quốc Âm Tân Tự → chỉ Telex → tắt → Quốc Âm Tân Tự.
+Tray app khởi động ở chế độ chuyển sang Quốc Âm Tân Tự. Chạy `qatt_tray.exe` cùng `mapping.tsv`, `qatt.ico` và `config.ini` (CMake tự copy các file vào thư mục build). Bấm chuột phải vào biểu tượng tray để chọn chế độ; nhấn phím tắt (mặc định **Alt+Z**, có thể chỉnh trong `config.ini`) để luân phiên Quốc Âm Tân Tự → chỉ Telex → tắt → Quốc Âm Tân Tự.
 
 - **Chuyển sang Quốc Âm Tân Tự**: gõ Telex; khi chốt từ thì chuyển từ có trong mapping thành glyph.
 - **Chỉ gõ Telex**: gõ tiếng Việt bằng Telex, không tra mapping/glyph.

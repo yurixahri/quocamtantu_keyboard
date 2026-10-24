@@ -46,12 +46,13 @@ std::string g_keystrokes;
 std::string g_visible_word;
 HWND g_target_window = nullptr;
 bool g_uppercase_first = false;
+bool g_sound_enabled = true;
 
 void update_tray_tooltip();
 void disable_with_error(const wchar_t* message);
 void set_mode(InputMode mode);
 
-std::filesystem::path mapping_path() {
+std::filesystem::path app_dir() {
     std::vector<wchar_t> path(32768);
     const auto length = GetModuleFileNameW(
         nullptr, path.data(), static_cast<DWORD>(path.size()));
@@ -59,22 +60,81 @@ std::filesystem::path mapping_path() {
         throw std::runtime_error("Cannot determine executable path");
     }
     return std::filesystem::path(std::wstring(path.data(), length))
-        .parent_path() /
-        L"mapping.tsv";
+        .parent_path();
 }
 
-
+std::filesystem::path mapping_path() {
+    return app_dir() / L"mapping.tsv";
+}
 
 std::filesystem::path icon_path() {
-    std::vector<wchar_t> path(32768);
-    const auto length = GetModuleFileNameW(
-        nullptr, path.data(), static_cast<DWORD>(path.size()));
-    if (length == 0 || length == path.size()) {
-        throw std::runtime_error("Cannot determine executable path");
+    return app_dir() / L"qatt.ico";
+}
+
+std::filesystem::path config_path() {
+    return app_dir() / L"config.ini";
+}
+
+struct HotkeyConfig {
+    UINT modifiers = MOD_ALT;
+    UINT vk = 'Z';
+};
+
+HotkeyConfig load_hotkey_config(const std::filesystem::path& config_file) {
+    HotkeyConfig cfg;
+    wchar_t mod_buf[64]{};
+    wchar_t key_buf[32]{};
+    GetPrivateProfileStringW(L"hotkey", L"modifiers", L"Alt", mod_buf,
+                             static_cast<DWORD>(std::size(mod_buf)),
+                             config_file.c_str());
+    GetPrivateProfileStringW(L"hotkey", L"key", L"Z", key_buf,
+                             static_cast<DWORD>(std::size(key_buf)),
+                             config_file.c_str());
+
+    std::wstring mods = mod_buf;
+    for (auto& c : mods) {
+        c = static_cast<wchar_t>(std::towlower(c));
     }
-    return std::filesystem::path(std::wstring(path.data(), length))
-        .parent_path() /
-        L"qatt.ico";
+
+    UINT m = 0;
+    if (mods.find(L"alt") != std::wstring::npos) m |= MOD_ALT;
+    if (mods.find(L"ctrl") != std::wstring::npos ||
+        mods.find(L"control") != std::wstring::npos) m |= MOD_CONTROL;
+    if (mods.find(L"shift") != std::wstring::npos) m |= MOD_SHIFT;
+    if (mods.find(L"win") != std::wstring::npos) m |= MOD_WIN;
+    if (m != 0) {
+        cfg.modifiers = m;
+    }
+
+    std::wstring key_str = key_buf;
+    for (auto& c : key_str) {
+        c = static_cast<wchar_t>(std::towupper(c));
+    }
+    while (!key_str.empty() && std::iswspace(key_str.front())) {
+        key_str.erase(key_str.begin());
+    }
+    while (!key_str.empty() && std::iswspace(key_str.back())) {
+        key_str.pop_back();
+    }
+
+    if (key_str.size() == 1) {
+        cfg.vk = static_cast<UINT>(key_str[0]);
+    } else if (key_str.rfind(L"F", 0) == 0 && key_str.size() <= 3) {
+        try {
+            const int f_num = std::stoi(key_str.substr(1));
+            if (f_num >= 1 && f_num <= 24) {
+                cfg.vk = VK_F1 + static_cast<UINT>(f_num - 1);
+            }
+        } catch (...) {
+        }
+    } else if (key_str == L"SPACE") {
+        cfg.vk = VK_SPACE;
+    } else if (key_str == L"TAB") {
+        cfg.vk = VK_TAB;
+    } else if (key_str == L"GRAVE" || key_str == L"`" || key_str == L"TILDE") {
+        cfg.vk = VK_OEM_3;
+    }
+    return cfg;
 }
 
 std::wstring to_wide(std::string_view text) {
@@ -435,8 +495,10 @@ void set_mode(InputMode mode) {
     g_mode = mode;
     g_w_key_held = false;
     update_tray_tooltip();
-    PlaySoundW(L"SystemAsterisk", nullptr,
-               SND_ALIAS | SND_ASYNC | SND_NODEFAULT);
+    if (g_sound_enabled) {
+        PlaySoundW(L"SystemAsterisk", nullptr,
+                   SND_ALIAS | SND_ASYNC | SND_NODEFAULT);
+    }
 }
 
 void disable_with_error(const wchar_t* message) {
@@ -553,10 +615,15 @@ int run_app(HINSTANCE instance) {
         throw std::runtime_error("Cannot create tray message window");
     }
 
-    if (!RegisterHotKey(g_window, kToggleModeHotkeyId, MOD_ALT | MOD_NOREPEAT,
-                        'Z')) {
+    const auto config_file = config_path();
+    g_sound_enabled = GetPrivateProfileIntW(
+        L"sound", L"enabled", 1, config_file.c_str()) != 0;
+
+    const auto hotkey = load_hotkey_config(config_file);
+    if (!RegisterHotKey(g_window, kToggleModeHotkeyId,
+                        hotkey.modifiers | MOD_NOREPEAT, hotkey.vk)) {
         DestroyWindow(g_window);
-        throw std::runtime_error("Cannot register Alt+Z shortcut");
+        throw std::runtime_error("Cannot register toggle hotkey shortcut");
     }
 
     g_tray_icon.cbSize = sizeof(g_tray_icon);

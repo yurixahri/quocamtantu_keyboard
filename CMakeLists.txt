@@ -46,6 +46,12 @@ configure_file(
     COPYONLY
 )
 
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
+    "${CMAKE_CURRENT_BINARY_DIR}/config.ini"
+    COPYONLY
+)
+
 add_executable(qatt_cli src/main.cpp)
 target_link_libraries(qatt_cli PRIVATE qatt_core)
 
