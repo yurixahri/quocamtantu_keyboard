@@ -51,6 +51,8 @@ Phím `W` nhận diện hai nguyên âm cuối của âm tiết: `uo` + `w` thà
 Nhấn Alt+Z để chuyển chế độ; mỗi lần đổi chế độ phát âm thông báo Windows.
 Enter và Tab chốt âm tiết rồi chuyển phím gốc tới ứng dụng. Các ký tự cần Shift như `<` và `>` cũng được chuyển phím gốc, không bị thay bằng ký tự Unicode giả lập.
 Nhấn lại cùng phím thanh sẽ hủy thanh và giữ phím đó như chữ thường; ví dụ `thiff` hiển thị `thif`.
+Telex theo kiểu UniKey: gõ lặp `a/e/o/d` để tạo `â/ê/ô/đ`, `w` để tạo dấu mũ/râu; gõ lặp phím biến đổi sẽ hoàn tác và chuyển phần còn lại của âm tiết sang gõ nguyên văn. `z` xóa dấu thanh hiện có. Ví dụ `aa` → `â`, `aaa` → `aa`, `ass` → `as`, `asz` → `a`. Dấu có thể gõ sau phụ âm cuối, ví dụ `theme` → `thêm`.
+Phím thanh được nhận khi nguyên âm gần nhất đứng trước tối đa hai phụ âm, theo giới hạn UniKey; vị trí đặt dấu vẫn theo quy tắc cũ của QATT. Backspace đồng bộ lại buffer từ chữ còn hiển thị để tiếp tục gõ Telex sau khi xóa, ví dụ từ `thêm` xóa `m` còn `thê`, sau đó gõ `f` thành `thề`.
 
 Vị trí dấu theo quy tắc kiểu cũ (`óa, iể, úy` thay vì `oá, uý`): bỏ qua `qu`/`gi` đầu khi chúng đóng vai trò phụ âm (nhưng giữ nguyên âm khi sau `gi` là phụ âm như `gìn`); nếu chỉ có một nguyên âm thì đặt dấu ở đó. Với hai nguyên âm, đặt dấu ở nguyên âm đầu khi không có phụ âm cuối (`hòa`, `xóa`, `thủy`, `túy`, `chào`), và chuyển sang nguyên âm thứ hai khi có phụ âm cuối (`toàn`, `quát`, `huýnh`). `ê` và `ơ` luôn được ưu tiên (`tiến`, `thưở`). Hỗ trợ phím tắt `[` ra `ơ`, `]` ra `ư`, `w` đầu từ ra `ư`.
 

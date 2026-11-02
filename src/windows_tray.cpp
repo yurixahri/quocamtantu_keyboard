@@ -526,6 +526,20 @@ LRESULT CALLBACK keyboard_proc(int code, WPARAM message, LPARAM data) {
         bool rebased = shortened.empty();
         std::string next_keystrokes;
 
+        if (!rebased) {
+            auto candidate =
+                qatt::telex_keystrokes_from_text(shortened);
+            const auto composed = qatt::compose_telex(candidate);
+            const auto preview =
+                g_mode == InputMode::qatt && !g_mapping.has_prefix(composed)
+                    ? candidate
+                    : composed;
+            if (display_word(preview, g_uppercase_first) == shortened) {
+                next_keystrokes = std::move(candidate);
+                rebased = true;
+            }
+        }
+
         for (std::size_t length = 1;
              !rebased && length <= g_keystrokes.size(); ++length) {
             for (std::size_t begin = 0;

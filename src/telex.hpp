@@ -12,6 +12,7 @@ struct Utf8Edit {
 };
 
 [[nodiscard]] std::string compose_telex(std::string_view keystrokes);
+[[nodiscard]] std::string telex_keystrokes_from_text(std::string_view text);
 [[nodiscard]] Utf8Edit make_utf8_edit(std::string_view current,
                                       std::string_view next);
 [[nodiscard]] std::string remove_last_utf8_codepoint(std::string_view text);

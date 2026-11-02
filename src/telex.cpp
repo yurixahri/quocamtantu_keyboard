@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -52,6 +53,24 @@ bool is_vowel(std::string_view character) {
     for (const auto& vowel : kVowels) {
         if (character == vowel.base) {
             return true;
+        }
+    }
+    return false;
+}
+
+bool has_vowel_within_tone_range(const std::vector<std::string>& chars) {
+    std::size_t consonants_after_vowel = 0;
+    for (auto it = chars.rbegin(); it != chars.rend(); ++it) {
+        if (is_vowel(*it)) {
+            return consonants_after_vowel <= 2;
+        }
+        if (it->size() != 1 ||
+            std::isalpha(static_cast<unsigned char>((*it)[0])) == 0) {
+            return false;
+        }
+        ++consonants_after_vowel;
+        if (consonants_after_vowel > 2) {
+            return false;
         }
     }
     return false;
@@ -181,14 +200,81 @@ std::string compose_telex(std::string_view keystrokes) {
     std::vector<std::string> chars;
     Tone tone = Tone::none;
     bool cancelled_tone = false;
+    bool vietnamese_off = false;
+
+    struct RepeatAction {
+        char key;
+        std::vector<std::pair<std::size_t, std::string>> previous_chars;
+    };
+    std::optional<RepeatAction> last_action;
 
     for (const char input : keystrokes) {
         const auto key = static_cast<char>(
             std::tolower(static_cast<unsigned char>(input)));
 
-        if (!chars.empty() && key == 'd' && chars.back() == "d") {
-            chars.back() = "đ";
+        if (vietnamese_off) {
+            chars.emplace_back(1, key);
             continue;
+        }
+
+        if (last_action && last_action->key == key) {
+            for (const auto& [index, previous] : last_action->previous_chars) {
+                chars[index] = previous;
+            }
+            chars.emplace_back(1, key);
+            vietnamese_off = true;
+            last_action.reset();
+            continue;
+        }
+        last_action.reset();
+
+        if (key == 'd') {
+            const auto first = chars.size() > 6 ? chars.size() - 6 : 0;
+            for (std::size_t i = chars.size(); i > first; --i) {
+                const auto index = i - 1;
+                if (chars[index] == "d") {
+                    chars[index] = "đ";
+                    last_action = RepeatAction{key, {{index, "d"}}};
+                    break;
+                }
+                if (chars[index] == "đ") {
+                    chars[index] = "d";
+                    chars.emplace_back(1, key);
+                    vietnamese_off = true;
+                    break;
+                }
+            }
+            if (vietnamese_off || last_action) {
+                continue;
+            }
+        }
+
+        if (key == 'a' || key == 'e' || key == 'o') {
+            const auto base = std::string(1, key);
+            const auto marked = key == 'a' ? "â" : key == 'e' ? "ê" : "ô";
+            const auto first = chars.size() > 6 ? chars.size() - 6 : 0;
+            for (std::size_t i = chars.size(); i > first; --i) {
+                const auto index = i - 1;
+                if (chars[index] == marked) {
+                    chars[index] = base;
+                    chars.emplace_back(1, key);
+                    vietnamese_off = true;
+                    break;
+                }
+                if (chars[index] == base) {
+                    const bool is_oeo =
+                        key == 'o' && index + 1 < chars.size() &&
+                        chars[index + 1] == "e";
+                    if (!is_oeo) {
+                        chars[index] = marked;
+                        last_action = RepeatAction{key, {{index, base}}};
+                    }
+                    break;
+                }
+            }
+            if (vietnamese_off || last_action) {
+                continue;
+            }
         }
 
         if (key == '[') {
@@ -200,8 +286,7 @@ std::string compose_telex(std::string_view keystrokes) {
             continue;
         }
 
-        if (!chars.empty() && key == 'w') {
-            bool transformed = false;
+        if (key == 'w') {
             std::vector<std::size_t> vowel_indices;
             for (std::size_t i = 0; i < chars.size(); ++i) {
                 if (is_vowel(chars[i])) {
@@ -215,46 +300,49 @@ std::string compose_telex(std::string_view keystrokes) {
                 if (chars[first] == "u" && chars[second] == "o") {
                     chars[first] = "ư";
                     chars[second] = "ơ";
-                    transformed = true;
-                } else if (chars[first] == "u" && chars[second] == "a") {
+                    last_action =
+                        RepeatAction{key, {{first, "u"}, {second, "o"}}};
+                    continue;
+                }
+                if (chars[first] == "u" && chars[second] == "a") {
                     chars[first] = "ư";
-                    transformed = true;
+                    last_action = RepeatAction{key, {{first, "u"}}};
+                    continue;
                 }
             }
 
-            if (!transformed) {
-                for (auto it = vowel_indices.rbegin();
-                     it != vowel_indices.rend(); ++it) {
-                    auto& vowel = chars[*it];
-                    if (vowel == "a") {
-                        vowel = "ă";
-                        transformed = true;
-                        break;
-                    }
-                    if (vowel == "o") {
-                        vowel = "ơ";
-                        transformed = true;
-                        break;
-                    }
-                    if (vowel == "u") {
-                        vowel = "ư";
-                        transformed = true;
-                        break;
-                    }
+            const auto first = chars.size() > 6 ? chars.size() - 6 : 0;
+            for (std::size_t i = chars.size(); i > first; --i) {
+                const auto index = i - 1;
+                if (chars[index] == "a" || chars[index] == "o" ||
+                    chars[index] == "u") {
+                    const auto base = chars[index];
+                    chars[index] =
+                        base == "a" ? "ă" : base == "o" ? "ơ" : "ư";
+                    last_action = RepeatAction{key, {{index, base}}};
+                    break;
+                }
+                if (chars[index] == "ă" || chars[index] == "ơ" ||
+                    chars[index] == "ư") {
+                    chars[index] = chars[index] == "ă" ? "a" :
+                                   chars[index] == "ơ" ? "o" : "u";
+                    chars.emplace_back(1, key);
+                    vietnamese_off = true;
+                    break;
                 }
             }
-            if (transformed) {
+            if (vietnamese_off || last_action) {
                 continue;
             }
         }
 
         const auto key_tone = tone_for_key(key);
-        if (key_tone != Tone::none &&
-            std::any_of(chars.begin(), chars.end(), is_vowel)) {
+        if (key_tone != Tone::none && has_vowel_within_tone_range(chars)) {
             if (tone == key_tone) {
                 tone = Tone::none;
                 chars.emplace_back(1, key);
                 cancelled_tone = true;
+                vietnamese_off = true;
             } else {
                 tone = key_tone;
                 cancelled_tone = false;
@@ -262,33 +350,24 @@ std::string compose_telex(std::string_view keystrokes) {
             continue;
         }
 
-        std::string_view circumflex;
-        if (key == 'a') {
-            circumflex = "â";
-        } else if (key == 'e') {
-            circumflex = "ê";
-        } else if (key == 'o') {
-            circumflex = "ô";
-        }
-        if (!circumflex.empty()) {
-            bool transformed = false;
-            for (auto it = chars.rbegin(); it != chars.rend(); ++it) {
-                if (*it == std::string(1, key)) {
-                    *it = circumflex;
-                    transformed = true;
-                    break;
-                }
-            }
-            if (transformed) {
-                continue;
-            }
+        if (key == 'z' && tone != Tone::none &&
+            has_vowel_within_tone_range(chars)) {
+            tone = Tone::none;
+            cancelled_tone = true;
+            continue;
         }
 
         chars.emplace_back(1, key);
     }
 
-    if (!has_valid_final_consonant(chars)) {
-        if (cancelled_tone) {
+    const bool contains_vowel =
+        std::any_of(chars.begin(), chars.end(), is_vowel);
+    if (contains_vowel && !has_valid_final_consonant(chars)) {
+        if (cancelled_tone || vietnamese_off) {
+            const auto tone_index = find_tone_index(chars);
+            if (tone != Tone::none && tone_index < chars.size()) {
+                chars[tone_index] = tone_character(chars[tone_index], tone);
+            }
             return join(chars);
         }
         std::string raw;
@@ -305,6 +384,92 @@ std::string compose_telex(std::string_view keystrokes) {
         chars[tone_index] = tone_character(chars[tone_index], tone);
     }
     return join(chars);
+}
+
+std::string telex_keystrokes_from_text(std::string_view text) {
+    constexpr std::array<char, 5> tone_keys{'f', 's', 'r', 'x', 'j'};
+    std::string keystrokes;
+    Tone tone = Tone::none;
+
+    for (std::size_t offset = 0; offset < text.size();) {
+        const auto lead = static_cast<unsigned char>(text[offset]);
+        const std::size_t length =
+            lead < 0x80 ? 1 : (lead & 0xE0U) == 0xC0U
+                                ? 2
+                                : (lead & 0xF0U) == 0xE0U ? 3 : 4;
+        if (offset + length > text.size()) {
+            keystrokes.append(text.substr(offset));
+            break;
+        }
+        const auto character = text.substr(offset, length);
+        offset += length;
+
+        if (character == "đ" || character == "Đ") {
+            keystrokes += "dd";
+            continue;
+        }
+
+        bool encoded_vowel = false;
+        for (const auto& vowel : kVowels) {
+            if (character == vowel.base) {
+                if (vowel.base == "ă") {
+                    keystrokes += "aw";
+                } else if (vowel.base == "â") {
+                    keystrokes += "aa";
+                } else if (vowel.base == "ê") {
+                    keystrokes += "ee";
+                } else if (vowel.base == "ô") {
+                    keystrokes += "oo";
+                } else if (vowel.base == "ơ") {
+                    keystrokes += "ow";
+                } else if (vowel.base == "ư") {
+                    keystrokes += "uw";
+                } else {
+                    keystrokes.append(vowel.base);
+                }
+                encoded_vowel = true;
+                break;
+            }
+            for (std::size_t index = 0; index < vowel.toned.size(); ++index) {
+                if (character == vowel.toned[index]) {
+                    if (vowel.base == "ă") {
+                        keystrokes += "aw";
+                    } else if (vowel.base == "â") {
+                        keystrokes += "aa";
+                    } else if (vowel.base == "ê") {
+                        keystrokes += "ee";
+                    } else if (vowel.base == "ô") {
+                        keystrokes += "oo";
+                    } else if (vowel.base == "ơ") {
+                        keystrokes += "ow";
+                    } else if (vowel.base == "ư") {
+                        keystrokes += "uw";
+                    } else {
+                        keystrokes.append(vowel.base);
+                    }
+                    tone = static_cast<Tone>(index);
+                    encoded_vowel = true;
+                    break;
+                }
+            }
+            if (encoded_vowel) {
+                break;
+            }
+        }
+        if (!encoded_vowel) {
+            if (length == 1) {
+                keystrokes.push_back(static_cast<char>(
+                    std::tolower(static_cast<unsigned char>(character[0]))));
+            } else {
+                keystrokes.append(character);
+            }
+        }
+    }
+
+    if (tone != Tone::none) {
+        keystrokes.push_back(tone_keys[static_cast<std::size_t>(tone)]);
+    }
+    return keystrokes;
 }
 
 Utf8Edit make_utf8_edit(std::string_view current, std::string_view next) {

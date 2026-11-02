@@ -7,6 +7,38 @@
 int main(int argc, char* argv[]) {
     assert(qatt::compose_telex("xin") == "xin");
     assert(qatt::compose_telex("aw") == "ă");
+    assert(qatt::compose_telex("aa") == "â");
+    assert(qatt::compose_telex("aaa") == "aa");
+    assert(qatt::compose_telex("aaaa") == "aaa");
+    assert(qatt::compose_telex("ee") == "ê");
+    assert(qatt::compose_telex("eee") == "ee");
+    assert(qatt::compose_telex("oo") == "ô");
+    assert(qatt::compose_telex("ooo") == "oo");
+    assert(qatt::compose_telex("dd") == "đ");
+    assert(qatt::compose_telex("ddd") == "dd");
+    assert(qatt::compose_telex("aww") == "aw");
+    assert(qatt::compose_telex("uoww") == "uow");
+    assert(qatt::compose_telex("uaww") == "uaw");
+    assert(qatt::compose_telex("oeo") == "oeo");
+    assert(qatt::compose_telex("as") == "á");
+    assert(qatt::compose_telex("ass") == "as");
+    assert(qatt::compose_telex("asz") == "a");
+    assert(qatt::compose_telex("aszz") == "az");
+    assert(qatt::compose_telex("aasz") == "â");
+    assert(qatt::compose_telex("asww") == "áw");
+    assert(qatt::compose_telex("angf") == "àng");
+    assert(qatt::compose_telex("thengf") == "thèng");
+    assert(qatt::compose_telex("themf") == "thèm");
+    assert(qatt::compose_telex("thenghf") == "thenghf");
+    assert(qatt::telex_keystrokes_from_text("thê") == "thee");
+    assert(qatt::compose_telex(
+               qatt::telex_keystrokes_from_text("thê")) == "thê");
+    assert(qatt::compose_telex(
+               qatt::telex_keystrokes_from_text("thê") + "f") == "thề");
+    assert(qatt::compose_telex(
+               qatt::telex_keystrokes_from_text("thêm")) == "thêm");
+    assert(qatt::compose_telex(
+               qatt::telex_keystrokes_from_text("thềm")) == "thềm");
     assert(qatt::compose_telex("uwow") == "ươ");
     assert(qatt::compose_telex("uongw") == "ương");
     assert(qatt::compose_telex("uowng") == "ương");
